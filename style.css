@@ -79,6 +79,7 @@ body {
 .logo-icon {
     background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     font-size: 2rem;
 }
@@ -161,17 +162,51 @@ body.light-mode .theme-toggle-btn {
 }
 
 .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     margin-bottom: 2rem;
 }
 
-.section-header h2 {
-    font-size: 2rem;
-    font-weight: 600;
+.title-group h1,
+.title-group h2 {
+    font-size: 1.8rem;
+    color: var(--clr-text-main);
     margin-bottom: 0.5rem;
 }
 
-.section-header p {
+.title-group p {
     color: var(--clr-text-muted);
+    font-size: 1rem;
+}
+
+/* Goal Tag */
+.goal-tag {
+    padding: 0.6rem 1.2rem;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    animation: fadeIn var(--transition-smooth);
+}
+
+.goal-tag.within-goal {
+    background: rgba(0, 230, 118, 0.1);
+    color: var(--clr-success);
+    border-color: rgba(0, 230, 118, 0.2);
+}
+
+.goal-tag.below-goal {
+    background: rgba(255, 76, 76, 0.1);
+    color: var(--clr-danger);
+    border-color: rgba(255, 76, 76, 0.2);
+}
+
+.goal-tag i {
     font-size: 1rem;
 }
 
@@ -215,7 +250,24 @@ body.light-mode .theme-toggle-btn {
     flex-direction: column;
     gap: 0.5rem;
     flex: 1;
-    min-width: 200px;
+    min-width: 180px;
+}
+
+.date-range-group {
+    flex: 2;
+    min-width: 320px;
+}
+
+.date-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.date-separator {
+    color: var(--clr-text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
 }
 
 .filter-group label {
