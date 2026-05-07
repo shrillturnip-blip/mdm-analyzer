@@ -26,12 +26,21 @@ const StorageService = {
     initRealtime: function(callback) {
         // Listen to changes in real-time
         recordsCol.onSnapshot((snapshot) => {
-            currentRecords = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            currentRecords = snapshot.docs.map(doc => {
+                const data = doc.data();
+                // Ensure date is a JS Date object for easier handling
+                const date = data.date && typeof data.date.toDate === 'function' 
+                    ? data.date.toDate() 
+                    : new Date(data.date);
+                
+                return {
+                    id: doc.id,
+                    ...data,
+                    date: date
+                };
+            });
             // Sort by date descending (newest first)
-            currentRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            currentRecords.sort((a, b) => b.date - a.date);
             if (callback) callback();
         }, (error) => {
             console.error("Erro no listener do Firestore:", error);
@@ -202,13 +211,14 @@ function initFormLogic() {
         const timePart = now.toTimeString().split(' ')[0]; // HH:MM:SS
         const dateString = `${year}-${month}-${day}T${timePart}`;
 
+        // Save with native Date object (Firestore converts this to Timestamp automatically)
         const newRecord = {
             recordNumber: recordId,
             agentName: agentName,
             clientName: clientName,
             installed: isInstalled,
             reason: reason,
-            date: dateString
+            date: new Date()
         };
 
         StorageService.saveRecord(newRecord);
@@ -326,11 +336,10 @@ function getFilteredRecords() {
 
     return records.filter(record => {
         if (filterDateVal) {
-            // Ensure we compare based on local date, regardless of how it was stored
-            const dateObj = new Date(record.date);
-            const year = dateObj.getFullYear();
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getDate()).padStart(2, '0');
+            // record.date is now always a JS Date object
+            const year = record.date.getFullYear();
+            const month = String(record.date.getMonth() + 1).padStart(2, '0');
+            const day = String(record.date.getDate()).padStart(2, '0');
             const recordLocalDate = `${year}-${month}-${day}`;
             
             if (recordLocalDate !== filterDateVal) return false;
@@ -528,8 +537,8 @@ function renderTable(filteredRecords) {
         DOM.tableBody.parentElement.classList.remove('hidden');
 
         filteredRecords.forEach(record => {
-            const dateObj = new Date(record.date);
-            const dateStr = dateObj.toLocaleDateString('pt-BR') + ' ' + dateObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            // record.date is already a JS Date object thanks to initRealtime mapping
+            const dateStr = record.date.toLocaleDateString('pt-BR') + ' ' + record.date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             
             const statusBadge = record.installed 
                 ? `<span class="status-badge installed"><i class="fa-solid fa-check"></i> Instalado</span>`
