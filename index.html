@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDM Analyzer Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo" id="brand-logo">
+                <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <h1>MDM Tracker</h1>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-tab="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </li>
+                <li data-tab="register">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>Registrar Instalação</span>
+                </li>
+            </ul>
+
+            <!-- Theme Toggle -->
+            <div class="theme-switch-wrapper">
+                <button id="theme-toggle" class="theme-toggle-btn" title="Alternar Tema">
+                    <i class="fa-solid fa-moon"></i>
+                    <span>Modo Escuro</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Dashboard View -->
+            <section id="dashboard" class="view-section active">
+                <header class="section-header">
+                    <h2>Visão Geral do Sistema</h2>
+                    <p>Acompanhe em tempo real as instalações do MDM nos clientes.</p>
+                </header>
+
+                <!-- Filters -->
+                <div class="filters-container glass-panel">
+                    <div class="filter-group">
+                        <label for="filter-date"><i class="fa-regular fa-calendar"></i> Data:</label>
+                        <input type="date" id="filter-date">
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-user"><i class="fa-solid fa-user-tag"></i> Técnico:</label>
+                        <select id="filter-user">
+                            <option value="all">Todos os Técnicos</option>
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-status"><i class="fa-solid fa-filter"></i> Status:</label>
+                        <select id="filter-status">
+                            <option value="all">Todos os Status</option>
+                            <option value="installed">Instalado</option>
+                            <option value="not_installed">Não Instalado</option>
+                        </select>
+                    </div>
+                    <button id="clear-filters" class="btn-secondary" title="Limpar Filtros"><i class="fa-solid fa-xmark"></i> Limpar</button>
+                    <button id="clear-day-data" class="btn-danger admin-only" title="Apagar todos os dados da data filtrada">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>Apagar Dia</span>
+                    </button>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card total">
+                        <div class="stat-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                        <div class="stat-info">
+                            <h3>Total de Registros</h3>
+                            <span id="stat-total" class="stat-number">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-icon"><i class="fa-solid fa-check-circle"></i></div>
+                        <div class="stat-info">
+                            <h3>Instalações Concluídas</h3>
+                            <span id="stat-installed" class="stat-number">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="stat-info">
+                            <h3>Não Instalados</h3>
+                            <span id="stat-not-installed" class="stat-number">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-container">
+                    <div class="chart-card glass-panel">
+                        <h3>Taxa de Instalação</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card glass-panel">
+                        <h3>Motivos de Falha</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="reasonsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="data-table-container glass-panel">
+                    <h3>Registros Recentes</h3>
+                    <div class="table-responsive">
+                        <table id="records-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Registro (ID)</th>
+                                    <th>Cliente</th>
+                                    <th>Técnico</th>
+                                    <th>Status</th>
+                                    <th>Motivo (Se falhou)</th>
+                                    <th class="admin-only">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="records-body">
+                                <!-- Rows generated by JS -->
+                            </tbody>
+                        </table>
+                        <div id="empty-state" class="empty-state hidden">
+                            <i class="fa-regular fa-folder-open"></i>
+                            <p>Nenhum registro encontrado para estes filtros.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Register Form View -->
+            <section id="register" class="view-section hidden">
+                <header class="section-header">
+                    <h2>Nova Instalação</h2>
+                    <p>Preencha os dados abaixo para registrar uma tentativa de instalação do MDM.</p>
+                </header>
+
+                <div class="form-container glass-panel">
+                    <form id="mdm-form">
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="record-id">Número de Registro</label>
+                                <input type="text" id="record-id" placeholder="Ex: RE-10293" required autocomplete="off">
+                            </div>
+                            <div class="form-group half">
+                                <label for="agent-name">Nome do Técnico</label>
+                                <input type="text" id="agent-name" placeholder="Seu nome ou código" required autocomplete="name" list="agent-list">
+                                <datalist id="agent-list"></datalist>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="client-name">Nome do Cliente</label>
+                            <input type="text" id="client-name" placeholder="Nome completo da empresa ou pessoa" required autocomplete="organization">
+                        </div>
+
+                        <div class="form-group mdm-status-group">
+                            <label>O MDM foi instalado com sucesso?</label>
+                            <div class="toggle-container">
+                                <label class="radio-card">
+                                    <input type="radio" name="mdm-status" value="yes" required>
+                                    <div class="card-content">
+                                        <i class="fa-solid fa-check"></i>
+                                        <span>Sim, instalado</span>
+                                    </div>
+                                </label>
+                                <label class="radio-card error-card">
+                                    <input type="radio" name="mdm-status" value="no" required>
+                                    <div class="card-content">
+                                        <i class="fa-solid fa-xmark"></i>
+                                        <span>Não instalado</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="reason-container" class="form-group hidden fade-in">
+                            <label for="failure-reason">Motivo da Não Instalação <span class="required-asterisk">*</span></label>
+                            <select id="failure-reason">
+                                <option value="" disabled selected>Selecione um motivo...</option>
+                                <option value="Alto Fluxo">Alto Fluxo (Sem tempo hábil)</option>
+                                <option value="Já instalado">Já estava instalado</option>
+                                <option value="Não foi possível acessar o cliente">Não foi possível acessar o cliente</option>
+                                <option value="Erro durante o processo de instalação">Erro durante o processo de instalação</option>
+                            </select>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">
+                                <span>Registrar Instalação</span>
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Success Notification Overlay -->
+                    <div id="success-notification" class="notification hidden">
+                        <div class="notification-content">
+                            <i class="fa-regular fa-circle-check"></i>
+                            <h3>Sucesso!</h3>
+                            <p>O registro foi salvo e o dashboard atualizado.</p>
+                            <button id="btn-new-record" class="btn-secondary">Novo Registro</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+    
+    <!-- Firebase Compat SDKs (Works with file:// protocol) -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+    
+    <script src="app.js"></script>
+</body>
+</html>
