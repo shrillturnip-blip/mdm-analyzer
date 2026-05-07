@@ -23,16 +23,16 @@ let currentRecords = [];
 
 // --- Data Service (Firebase Compat) ---
 const StorageService = {
-    initRealtime: function(callback) {
+    initRealtime: function (callback) {
         // Listen to changes in real-time
         recordsCol.onSnapshot((snapshot) => {
             currentRecords = snapshot.docs.map(doc => {
                 const data = doc.data();
                 // Ensure date is a JS Date object for easier handling
-                const date = data.date && typeof data.date.toDate === 'function' 
-                    ? data.date.toDate() 
+                const date = data.date && typeof data.date.toDate === 'function'
+                    ? data.date.toDate()
                     : new Date(data.date);
-                
+
                 return {
                     id: doc.id,
                     ...data,
@@ -48,11 +48,11 @@ const StorageService = {
         });
     },
 
-    getRecords: function() {
+    getRecords: function () {
         return currentRecords;
     },
 
-    saveRecord: async function(record) {
+    saveRecord: async function (record) {
         try {
             // Remove local ID, Firestore will generate one
             delete record.id;
@@ -63,7 +63,7 @@ const StorageService = {
         }
     },
 
-    deleteRecord: async function(id) {
+    deleteRecord: async function (id) {
         try {
             await recordsCol.doc(id).delete();
         } catch (e) {
@@ -72,7 +72,7 @@ const StorageService = {
         }
     },
 
-    deleteRecordsByDate: async function(dateStr) {
+    deleteRecordsByDate: async function (dateStr) {
         try {
             const snapshot = await recordsCol.get();
             const deletePromises = [];
@@ -95,7 +95,7 @@ const DOM = {
     // Nav
     navLinks: document.querySelectorAll('.nav-links li'),
     views: document.querySelectorAll('.view-section'),
-    
+
     // Form
     form: document.getElementById('mdm-form'),
     radioYes: document.querySelector('input[value="yes"]'),
@@ -104,12 +104,12 @@ const DOM = {
     reasonSelect: document.getElementById('failure-reason'),
     notification: document.getElementById('success-notification'),
     btnNewRecord: document.getElementById('btn-new-record'),
-    
+
     // Dashboard Stats
     statTotal: document.getElementById('stat-total'),
     statInstalled: document.getElementById('stat-installed'),
     statNotInstalled: document.getElementById('stat-not-installed'),
-    
+
     // Dashboard Table & Filters
     tableBody: document.getElementById('records-body'),
     emptyState: document.getElementById('empty-state'),
@@ -118,14 +118,14 @@ const DOM = {
     filterStatus: document.getElementById('filter-status'),
     btnClearFilters: document.getElementById('clear-filters'),
     btnClearDay: document.getElementById('clear-day-data'),
-    
+
     // Logo (Admin Trigger)
     brandLogo: document.getElementById('brand-logo'),
-    
+
     // Charts
     ctxStatus: document.getElementById('statusChart').getContext('2d'),
     ctxReasons: document.getElementById('reasonsChart').getContext('2d'),
-    
+
     // Datalist
     agentDatalist: document.getElementById('agent-list'),
 
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initFormLogic();
     initThemeLogic();
-    
+
     // Connect to Firebase and update dashboard when data arrives
     StorageService.initRealtime(() => {
         updateDashboard();
@@ -169,7 +169,7 @@ function initNavigation() {
             targetView.classList.add('active');
 
             // Refresh dashboard when switching to it
-            if(link.dataset.tab === 'dashboard') {
+            if (link.dataset.tab === 'dashboard') {
                 updateDashboard();
             }
         });
@@ -202,7 +202,7 @@ function initFormLogic() {
         const clientName = document.getElementById('client-name').value.trim();
         const isInstalled = document.querySelector('input[name="mdm-status"]:checked').value === 'yes';
         const reason = isInstalled ? null : DOM.reasonSelect.value;
-        
+
         // Get current date and time in local format (ISO-like but local)
         const now = new Date();
         const year = now.getFullYear();
@@ -212,20 +212,21 @@ function initFormLogic() {
         const dateString = `${year}-${month}-${day}T${timePart}`;
 
         // Save with native Date object (Firestore converts this to Timestamp automatically)
+        // Save with native Firestore Timestamp object
         const newRecord = {
             recordNumber: recordId,
             agentName: agentName,
             clientName: clientName,
             installed: isInstalled,
             reason: reason,
-            date: new Date()
+            date: firebase.firestore.Timestamp.now()
         };
 
         StorageService.saveRecord(newRecord);
 
         // Show Success Overlay
         DOM.notification.classList.remove('hidden');
-        
+
         // updateDashboard() is no longer needed here because onSnapshot will trigger it automatically
     });
 
@@ -258,15 +259,15 @@ let adminClickTimer = null;
 DOM.brandLogo.addEventListener('click', () => {
     adminClickCount++;
     clearTimeout(adminClickTimer);
-    
+
     adminClickTimer = setTimeout(() => {
         adminClickCount = 0;
     }, 2000); // reset if 2 seconds pass without a click
-    
+
     if (adminClickCount >= 10) {
         document.body.classList.toggle('admin-mode');
         adminClickCount = 0; // reset
-        if(document.body.classList.contains('admin-mode')){
+        if (document.body.classList.contains('admin-mode')) {
             alert('Modo Admin Ativado!');
         } else {
             alert('Modo Admin Desativado!');
@@ -281,7 +282,7 @@ DOM.btnClearDay.addEventListener('click', () => {
         alert('Por favor, selecione uma Data no filtro para apagar os dados daquele dia.');
         return;
     }
-    
+
     // Format date for better readability in confirmation
     const dateObj = new Date(selectedDate + 'T00:00:00');
     const formattedDate = dateObj.toLocaleDateString('pt-BR');
@@ -306,7 +307,7 @@ function initThemeLogic() {
         const newTheme = isLight ? 'light' : 'dark';
         localStorage.setItem('theme', newTheme);
         updateThemeUI(newTheme);
-        
+
         // Update charts to reflect new theme colors
         updateDashboard();
     });
@@ -315,7 +316,7 @@ function initThemeLogic() {
 function updateThemeUI(theme) {
     const icon = DOM.themeToggle.querySelector('i');
     const span = DOM.themeToggle.querySelector('span');
-    
+
     if (theme === 'light') {
         icon.className = 'fa-solid fa-sun';
         span.textContent = 'Modo Claro';
@@ -336,12 +337,14 @@ function getFilteredRecords() {
 
     return records.filter(record => {
         if (filterDateVal) {
-            // record.date is now always a JS Date object
+            // record.date should be a JS Date object from StorageService
+            if (!(record.date instanceof Date) || isNaN(record.date)) return false;
+
             const year = record.date.getFullYear();
             const month = String(record.date.getMonth() + 1).padStart(2, '0');
             const day = String(record.date.getDate()).padStart(2, '0');
             const recordLocalDate = `${year}-${month}-${day}`;
-            
+
             if (recordLocalDate !== filterDateVal) return false;
         }
         if (filterUserVal !== 'all' && record.agentName !== filterUserVal) {
@@ -359,7 +362,7 @@ function updateDashboard() {
     // Filter records for stats and charts, but keep all for Agent Filter Dropdown
     const allRecords = StorageService.getRecords();
     const filteredRecords = getFilteredRecords();
-    
+
     // Update Stats based on filtered records
     const total = filteredRecords.length;
     const installed = filteredRecords.filter(r => r.installed).length;
@@ -388,7 +391,7 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
     const clrDanger = '#FF4C4C';
     const clrPrimary = '#8A2BE2';
     const clrAccent = '#FFD700';
-    
+
     // Get neutral color from CSS variable to adapt to theme
     const clrNeutral = getComputedStyle(document.body).getPropertyValue('--clr-text-muted').trim() || '#A0A0B0';
 
@@ -401,13 +404,13 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
     if (statusChartInstance) {
         statusChartInstance.destroy();
     }
-    
+
     statusChartInstance = new Chart(DOM.ctxStatus, {
         type: 'doughnut',
         data: {
             labels: [
-                `Instalado (${pInstalado}%)`, 
-                `Já Instalado (${pJaInstalado}%)`, 
+                `Instalado (${pInstalado}%)`,
+                `Já Instalado (${pJaInstalado}%)`,
                 `Falha (${pFalha}%)`
             ],
             datasets: [{
@@ -424,7 +427,7 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
                 legend: { position: 'bottom' },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             return ` ${context.label}: ${context.parsed}`;
                         }
                     }
@@ -447,7 +450,7 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
 
     const reasonLabels = Object.keys(reasonCounts);
     const reasonData = Object.values(reasonCounts);
-    
+
     // Add percentage to reason labels
     const totalReasons = reasonData.reduce((a, b) => a + b, 0);
     const reasonLabelsWithPercent = reasonLabels.map(label => {
@@ -479,7 +482,7 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             return ` Ocorrências: ${context.parsed.y}`;
                         }
                     }
@@ -507,18 +510,18 @@ function updateAgentFilterOptions(records) {
 
     let optionsHTML = '<option value="all">Todos os Técnicos</option>';
     let datalistHTML = '';
-    
+
     agents.forEach(agent => {
         optionsHTML += `<option value="${agent}">${agent}</option>`;
         datalistHTML += `<option value="${agent}">`;
     });
 
     DOM.filterUser.innerHTML = optionsHTML;
-    
+
     if (DOM.agentDatalist) {
         DOM.agentDatalist.innerHTML = datalistHTML;
     }
-    
+
     // Restore selection if it still exists
     if (agents.includes(currentSelection)) {
         DOM.filterUser.value = currentSelection;
@@ -528,7 +531,7 @@ function updateAgentFilterOptions(records) {
 function renderTable(filteredRecords) {
     // Build DOM
     DOM.tableBody.innerHTML = '';
-    
+
     if (!filteredRecords || filteredRecords.length === 0) {
         DOM.emptyState.classList.remove('hidden');
         DOM.tableBody.parentElement.classList.add('hidden');
@@ -538,9 +541,9 @@ function renderTable(filteredRecords) {
 
         filteredRecords.forEach(record => {
             // record.date is already a JS Date object thanks to initRealtime mapping
-            const dateStr = record.date.toLocaleDateString('pt-BR') + ' ' + record.date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-            
-            const statusBadge = record.installed 
+            const dateStr = record.date.toLocaleDateString('pt-BR') + ' ' + record.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            const statusBadge = record.installed
                 ? `<span class="status-badge installed"><i class="fa-solid fa-check"></i> Instalado</span>`
                 : `<span class="status-badge not-installed"><i class="fa-solid fa-xmark"></i> Falha</span>`;
 
@@ -566,8 +569,8 @@ function renderTable(filteredRecords) {
 }
 
 // Global function for onclick event (needs to be exposed to window since we are in a module)
-window.deleteRecord = function(id) {
-    if(confirm('Tem certeza que deseja excluir este registro?')) {
+window.deleteRecord = function (id) {
+    if (confirm('Tem certeza que deseja excluir este registro?')) {
         StorageService.deleteRecord(id);
         // updateDashboard() is not needed here; onSnapshot handles it
     }
