@@ -194,12 +194,15 @@ function initFormLogic() {
         const isInstalled = document.querySelector('input[name="mdm-status"]:checked').value === 'yes';
         const reason = isInstalled ? null : DOM.reasonSelect.value;
         
-        // Get current date automatically
+        // Get current date and time in local format (ISO-like but local)
         const now = new Date();
-        const dateString = now.toISOString(); // Use ISO for easier filtering later
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const timePart = now.toTimeString().split(' ')[0]; // HH:MM:SS
+        const dateString = `${year}-${month}-${day}T${timePart}`;
 
         const newRecord = {
-            id: Date.now().toString(), // Unique internal ID
             recordNumber: recordId,
             agentName: agentName,
             clientName: clientName,
@@ -323,8 +326,14 @@ function getFilteredRecords() {
 
     return records.filter(record => {
         if (filterDateVal) {
-            const recordDate = record.date.split('T')[0];
-            if (recordDate !== filterDateVal) return false;
+            // Ensure we compare based on local date, regardless of how it was stored
+            const dateObj = new Date(record.date);
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const recordLocalDate = `${year}-${month}-${day}`;
+            
+            if (recordLocalDate !== filterDateVal) return false;
         }
         if (filterUserVal !== 'all' && record.agentName !== filterUserVal) {
             return false;
