@@ -132,11 +132,14 @@ const DOM = {
     statTotal: document.getElementById('stat-total'),
     statInstalled: document.getElementById('stat-installed'),
     statNotInstalled: document.getElementById('stat-not-installed'),
+    goalTag: document.getElementById('goal-tag'),
+    goalText: document.getElementById('goal-text'),
 
     // Dashboard Table & Filters
     tableBody: document.getElementById('records-body'),
     emptyState: document.getElementById('empty-state'),
-    filterDate: document.getElementById('filter-date'),
+    filterDateStart: document.getElementById('filter-date-start'),
+    filterDateEnd: document.getElementById('filter-date-end'),
     filterUser: document.getElementById('filter-user'),
     filterStatus: document.getElementById('filter-status'),
     btnClearFilters: document.getElementById('clear-filters'),
@@ -264,12 +267,14 @@ function initFormLogic() {
 // --- Dashboard Logic ---
 
 // Listen to filter changes
-DOM.filterDate.addEventListener('change', updateDashboard);
+DOM.filterDateStart.addEventListener('change', updateDashboard);
+DOM.filterDateEnd.addEventListener('change', updateDashboard);
 DOM.filterUser.addEventListener('change', updateDashboard);
 DOM.filterStatus.addEventListener('change', updateDashboard);
 
 DOM.btnClearFilters.addEventListener('click', () => {
-    DOM.filterDate.value = '';
+    DOM.filterDateStart.value = '';
+    DOM.filterDateEnd.value = '';
     DOM.filterUser.value = 'all';
     DOM.filterStatus.value = 'all';
     updateDashboard();
@@ -300,9 +305,9 @@ DOM.brandLogo.addEventListener('click', () => {
 
 // Clear Day Data Logic
 DOM.btnClearDay.addEventListener('click', async () => {
-    const selectedDate = DOM.filterDate.value;
+    const selectedDate = DOM.filterDateStart.value;
     if (!selectedDate) {
-        alert('Por favor, selecione uma Data no filtro para apagar os dados daquele dia.');
+        alert('Por favor, selecione pelo menos a Data Inicial no filtro para identificar o dia a ser apagado.');
         return;
     }
 
@@ -353,12 +358,14 @@ function updateThemeUI(theme) {
 
 function getFilteredRecords() {
     const records = StorageService.getRecords();
-    const filterDateVal = DOM.filterDate.value;
+    const startDateVal = DOM.filterDateStart.value;
+    const endDateVal = DOM.filterDateEnd.value;
     const filterUserVal = DOM.filterUser.value;
     const filterStatusVal = DOM.filterStatus.value;
 
     return records.filter(record => {
-        if (filterDateVal) {
+        // Date Range Filter
+        if (startDateVal || endDateVal) {
             // record.date should be a JS Date object from StorageService
             if (!(record.date instanceof Date) || isNaN(record.date)) return false;
 
@@ -367,7 +374,8 @@ function getFilteredRecords() {
             const day = String(record.date.getDate()).padStart(2, '0');
             const recordLocalDate = `${year}-${month}-${day}`;
 
-            if (recordLocalDate !== filterDateVal) return false;
+            if (startDateVal && recordLocalDate < startDateVal) return false;
+            if (endDateVal && recordLocalDate > endDateVal) return false;
         }
         if (filterUserVal !== 'all' && record.agentName !== filterUserVal) {
             return false;
@@ -392,6 +400,9 @@ function updateDashboard() {
     const notInstalled = total - installed; // Total not installed (includes 'Já instalado')
     const failed = notInstalled - alreadyInstalled; // Strictly errors/unreachable
 
+    // Goal Calculation (60%)
+    updateGoalStatus(installed, alreadyInstalled, total);
+
     // Animate numbers (simple version)
     DOM.statTotal.textContent = total;
     DOM.statInstalled.textContent = installed;
@@ -405,6 +416,27 @@ function updateDashboard() {
 
     // Render Table
     renderTable(filteredRecords);
+}
+
+function updateGoalStatus(installed, alreadyInstalled, total) {
+    if (total === 0) {
+        DOM.goalTag.classList.add('hidden');
+        return;
+    }
+
+    DOM.goalTag.classList.remove('hidden');
+    const successRate = (installed + alreadyInstalled) / total;
+    const isWithinGoal = successRate >= 0.6;
+
+    DOM.goalTag.classList.remove('within-goal', 'below-goal');
+    
+    if (isWithinGoal) {
+        DOM.goalTag.classList.add('within-goal');
+        DOM.goalText.textContent = `Dentro da Meta (${Math.round(successRate * 100)}%)`;
+    } else {
+        DOM.goalTag.classList.add('below-goal');
+        DOM.goalText.textContent = `Fora da Meta (${Math.round(successRate * 100)}%)`;
+    }
 }
 
 function renderCharts(installed, alreadyInstalled, failed, total, records) {
