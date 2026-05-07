@@ -45,15 +45,25 @@
             <!-- Dashboard View -->
             <section id="dashboard" class="view-section active">
                 <header class="section-header">
-                    <h2>Visão Geral do Sistema</h2>
-                    <p>Acompanhe em tempo real as instalações do MDM nos clientes.</p>
+                    <div class="title-group">
+                        <h1>Dashboard de Monitoramento</h1>
+                        <p>Visão geral das instalações e métricas de desempenho.</p>
+                    </div>
+                    <div id="goal-tag" class="goal-tag hidden">
+                        <i class="fa-solid fa-bullseye"></i>
+                        <span id="goal-text">Carregando meta...</span>
+                    </div>
                 </header>
 
                 <!-- Filters -->
                 <div class="filters-container glass-panel">
-                    <div class="filter-group">
-                        <label for="filter-date"><i class="fa-regular fa-calendar"></i> Data:</label>
-                        <input type="date" id="filter-date">
+                    <div class="filter-group date-range-group">
+                        <label><i class="fa-regular fa-calendar-days"></i> Período:</label>
+                        <div class="date-inputs">
+                            <input type="date" id="filter-date-start" title="Data Inicial">
+                            <span class="date-separator">até</span>
+                            <input type="date" id="filter-date-end" title="Data Final">
+                        </div>
                     </div>
                     <div class="filter-group">
                         <label for="filter-user"><i class="fa-solid fa-user-tag"></i> Técnico:</label>
@@ -149,8 +159,10 @@
             <!-- Register Form View -->
             <section id="register" class="view-section hidden">
                 <header class="section-header">
-                    <h2>Nova Instalação</h2>
-                    <p>Preencha os dados abaixo para registrar uma tentativa de instalação do MDM.</p>
+                    <div class="title-group">
+                        <h2>Nova Instalação</h2>
+                        <p>Preencha os dados abaixo para registrar uma tentativa de instalação do MDM.</p>
+                    </div>
                 </header>
 
                 <div class="form-container glass-panel">
