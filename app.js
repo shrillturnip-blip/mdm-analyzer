@@ -74,18 +74,41 @@ const StorageService = {
 
     deleteRecordsByDate: async function (dateStr) {
         try {
-            const snapshot = await recordsCol.get();
-            const deletePromises = [];
-            snapshot.forEach(docSnap => {
-                const rDate = docSnap.data().date.split('T')[0];
-                if (rDate === dateStr) {
-                    deletePromises.push(recordsCol.doc(docSnap.id).delete());
+            const allSnapshot = await recordsCol.get();
+            const batch = db.batch();
+            let count = 0;
+
+            allSnapshot.forEach(doc => {
+                const data = doc.data();
+                let matches = false;
+
+                // Handle both Timestamp objects and ISO strings
+                if (data.date && typeof data.date.toDate === 'function') {
+                    const d = data.date.toDate();
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    if (`${year}-${month}-${day}` === dateStr) matches = true;
+                } else if (typeof data.date === 'string' && data.date.startsWith(dateStr)) {
+                    matches = true;
+                }
+
+                if (matches) {
+                    batch.delete(doc.ref);
+                    count++;
                 }
             });
-            await Promise.all(deletePromises);
+
+            if (count === 0) {
+                alert("Nenhum registro encontrado para esta data.");
+                return;
+            }
+
+            await batch.commit();
+            alert(`${count} registros apagados com sucesso!`);
         } catch (e) {
-            console.error("Error deleting multiple documents: ", e);
-            alert("Erro ao apagar registros.");
+            console.error("Error deleting documents: ", e);
+            alert("Erro ao deletar registros. Verifique suas permissões no Firebase Rules.");
         }
     }
 };
@@ -276,7 +299,7 @@ DOM.brandLogo.addEventListener('click', () => {
 });
 
 // Clear Day Data Logic
-DOM.btnClearDay.addEventListener('click', () => {
+DOM.btnClearDay.addEventListener('click', async () => {
     const selectedDate = DOM.filterDate.value;
     if (!selectedDate) {
         alert('Por favor, selecione uma Data no filtro para apagar os dados daquele dia.');
@@ -288,9 +311,8 @@ DOM.btnClearDay.addEventListener('click', () => {
     const formattedDate = dateObj.toLocaleDateString('pt-BR');
 
     if (confirm(`Modo Admin: Tem certeza que deseja apagar TODOS os registros realizados no dia ${formattedDate}?\nEsta ação não pode ser desfeita!`)) {
-        StorageService.deleteRecordsByDate(selectedDate);
+        await StorageService.deleteRecordsByDate(selectedDate);
         // updateDashboard() is not needed here; onSnapshot handles it
-        alert(`Comando de exclusão enviado. Aguarde a sincronização.`);
     }
 });
 
@@ -406,7 +428,7 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
     }
 
     statusChartInstance = new Chart(DOM.ctxStatus, {
-        type: 'doughnut',
+        type: 'pie',
         data: {
             labels: [
                 `Instalado (${pInstalado}%)`,
@@ -416,24 +438,34 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
             datasets: [{
                 data: [installed, alreadyInstalled, failed],
                 backgroundColor: [clrSuccess, clrNeutral, clrDanger],
-                borderWidth: 0,
-                hoverOffset: 4
+                borderWidth: 2,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                hoverOffset: 15
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom' },
+                legend: { 
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                        font: { size: 12, weight: '500' }
+                    }
+                },
                 tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    displayColors: true,
                     callbacks: {
                         label: function (context) {
-                            return ` ${context.label}: ${context.parsed}`;
+                            return ` ${context.label}: ${context.parsed} dispositivos`;
                         }
                     }
                 }
-            },
-            cutout: '70%'
+            }
         }
     });
 
@@ -472,30 +504,43 @@ function renderCharts(installed, alreadyInstalled, failed, total, records) {
                 label: 'Ocorrências',
                 data: reasonData.length > 0 ? reasonData : [0],
                 backgroundColor: bgColors.length > 0 ? bgColors : clrPrimary,
-                borderRadius: 4
+                borderRadius: 6,
+                borderWidth: 0,
+                barThickness: 25
             }]
         },
         options: {
+            indexAxis: 'y', // Horizontal bars for better readability
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
                     callbacks: {
                         label: function (context) {
-                            return ` Ocorrências: ${context.parsed.y}`;
+                            const val = context.parsed.x;
+                            const total = reasonData.reduce((a, b) => a + b, 0);
+                            const perc = total > 0 ? Math.round((val / total) * 100) : 0;
+                            return ` Ocorrências: ${val} (${perc}%)`;
                         }
                     }
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
-                },
                 x: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { 
+                        stepSize: 1,
+                        font: { size: 11 }
+                    }
+                },
+                y: {
+                    grid: { display: false },
                     ticks: {
-                        display: false // Hide long labels on x axis, rely on tooltips
+                        font: { size: 12, weight: '500' }
                     }
                 }
             }
