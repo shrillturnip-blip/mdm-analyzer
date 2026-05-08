@@ -156,7 +156,11 @@ const DOM = {
     agentDatalist: document.getElementById('agent-list'),
 
     // Theme Toggle
-    themeToggle: document.getElementById('theme-toggle')
+    themeToggle: document.getElementById('theme-toggle'),
+
+    // Ranking
+    podiumContainer: document.getElementById('ranking-podium'),
+    rankingBody: document.getElementById('ranking-body')
 };
 
 // --- Chart Instances ---
@@ -172,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initFormLogic();
     initThemeLogic();
+    initFilters(); // Initialize date filters with current date
 
     // Connect to Firebase and update dashboard when data arrives
     StorageService.initRealtime(() => {
@@ -197,6 +202,9 @@ function initNavigation() {
             // Refresh dashboard when switching to it
             if (link.dataset.tab === 'dashboard') {
                 updateDashboard();
+            }
+            if (link.dataset.tab === 'ranking') {
+                updateRanking();
             }
         });
     });
@@ -265,6 +273,17 @@ function initFormLogic() {
 }
 
 // --- Dashboard Logic ---
+
+function initFilters() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    
+    if (DOM.filterDateStart) DOM.filterDateStart.value = todayStr;
+    if (DOM.filterDateEnd) DOM.filterDateEnd.value = todayStr;
+}
 
 // Listen to filter changes
 DOM.filterDateStart.addEventListener('change', updateDashboard);
@@ -652,3 +671,101 @@ window.deleteRecord = function (id) {
         // updateDashboard() is not needed here; onSnapshot handles it
     }
 };
+// --- Ranking Logic ---
+function updateRanking() {
+    const allRecords = StorageService.getRecords();
+    if (!allRecords || allRecords.length === 0) {
+        DOM.podiumContainer.innerHTML = '<p class="empty-state">Nenhum dado disponível para o ranking.</p>';
+        DOM.rankingBody.innerHTML = '<tr><td colspan="5" class="empty-state">Nenhum dado disponível.</td></tr>';
+        return;
+    }
+
+    // Calculate stats per agent
+    const agentStats = {};
+    allRecords.forEach(record => {
+        const agent = record.agentName;
+        if (!agentStats[agent]) {
+            agentStats[agent] = { name: agent, total: 0, installed: 0 };
+        }
+
+        // EXCLUDE "Já instalado" from both total and installed counts for ranking purposes
+        if (!record.installed && record.reason === 'Já instalado') {
+            return; // Ignore this record for ranking
+        }
+
+        agentStats[agent].total++;
+        if (record.installed) {
+            agentStats[agent].installed++;
+        }
+    });
+
+    // Convert to array and calculate rates
+    const rankingArray = Object.values(agentStats).map(stat => {
+        const rate = stat.total > 0 ? (stat.installed / stat.total) : 0;
+        return {
+            ...stat,
+            rate: rate,
+            percentage: Math.round(rate * 100)
+        };
+    });
+
+    // Sort by rate descending, then by total calls descending (tie-breaker)
+    rankingArray.sort((a, b) => {
+        if (b.rate !== a.rate) return b.rate - a.rate;
+        return b.total - a.total;
+    });
+
+    renderRanking(rankingArray);
+}
+
+function renderRanking(rankingArray) {
+    // 1. Render Podium (Top 3)
+    const podiumData = rankingArray.slice(0, 3);
+    // Order for podium display: 2nd, 1st, 3rd
+    const displayOrder = [];
+    if (podiumData.length >= 2) displayOrder.push({ ...podiumData[1], rank: 2 });
+    if (podiumData.length >= 1) displayOrder.push({ ...podiumData[0], rank: 1 });
+    if (podiumData.length >= 3) displayOrder.push({ ...podiumData[2], rank: 3 });
+
+    DOM.podiumContainer.innerHTML = '';
+    displayOrder.forEach(item => {
+        const icon = item.rank === 1 ? 'fa-crown' : 'fa-user';
+        const podiumItem = document.createElement('div');
+        podiumItem.className = `podium-item rank-${item.rank}`;
+        podiumItem.innerHTML = `
+            <div class="podium-rank">${item.rank === 1 ? '<i class="fa-solid fa-star"></i>' : item.rank}</div>
+            <div class="podium-card">
+                <div class="podium-avatar">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+                <div class="podium-name">${item.name}</div>
+                <div class="podium-stats">
+                    <span class="podium-percentage">${item.percentage}%</span>
+                    <span class="podium-subtext">${item.installed} / ${item.total} instalados</span>
+                </div>
+            </div>
+        `;
+        DOM.podiumContainer.appendChild(podiumItem);
+    });
+
+    // 2. Render Full List Table
+    DOM.rankingBody.innerHTML = '';
+    rankingArray.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>#${index + 1}</td>
+            <td><strong>${item.name}</strong></td>
+            <td>${item.installed}</td>
+            <td>${item.total}</td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="width: 40px; font-weight: 600;">${item.percentage}%</span>
+                    <div class="efficiency-bar-container">
+                        <div class="efficiency-bar" style="width: ${item.percentage}%"></div>
+                    </div>
+                </div>
+            </td>
+        `;
+        DOM.rankingBody.appendChild(tr);
+    });
+}
